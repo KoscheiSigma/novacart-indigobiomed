@@ -147,29 +147,24 @@ def get_summary():
     """
     conn = get_connection()
 
-    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    #
-    # results = execute_query(conn, """
-    #     SELECT
-    #         COUNT(DISTINCT order_id)    AS total_orders,
-    #         SUM(amount)                 AS total_revenue,
-    #         COUNT(DISTINCT customer_id) AS unique_customers,
-    #         MIN(order_date)             AS start_date,
-    #         MAX(order_date)             AS end_date
-    #     FROM fact_orders
-    #     WHERE status IN ('delivered', 'shipped')
-    # """)
-    #
-    # row = results[0]
-    # return {
-    #     "total_revenue":     round(row["total_revenue"] or 0, 2),
-    #     "total_orders":      row["total_orders"],
-    #     "unique_customers":  row["unique_customers"],
-    #     "date_range": {"start": row["start_date"], "end": row["end_date"]},
-    # }
-    # ─────────────────────────────────────────────────────────────────────────
+    results = execute_query(conn, """
+        SELECT
+            COUNT(DISTINCT order_id)    AS total_orders,
+            SUM(amount)                 AS total_revenue,
+            COUNT(DISTINCT customer_id) AS unique_customers,
+            MIN(order_date)             AS start_date,
+            MAX(order_date)             AS end_date
+        FROM fact_orders
+        WHERE status IN ('delivered', 'shipped')
+    """)
 
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    row = results[0]
+    return {
+        "total_revenue":     round(float(row["total_revenue"] or 0), 2),
+        "total_orders":      row["total_orders"],
+        "unique_customers":  row["unique_customers"],
+        "date_range": {"start": str(row["start_date"]), "end": str(row["end_date"])},
+    }
 
 
 @app.get("/franchise/orders", tags=["Franchise"])
@@ -196,9 +191,33 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
       - Only include delivered + shipped for revenue
     """
     conn = get_connection()
+    p = "%s" if os.getenv("DATA_BACKEND", "sqlite") == "snowflake" else "?"
 
-    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    results = execute_query(conn, f"""
+        SELECT
+            d.year                     AS year,
+            d.month                    AS month,
+            d.month_name               AS month_name,
+            COUNT(DISTINCT o.order_id) AS order_count,
+            SUM(o.amount)              AS revenue
+        FROM fact_orders o
+        JOIN dim_date d
+          ON d.date_key = o.date_key
+        WHERE o.status IN ('delivered', 'shipped')
+          AND o.order_date BETWEEN {p} AND {p}
+        GROUP BY d.year, d.month, d.month_name
+        ORDER BY d.year, d.month
+    """, (start, end))
+
+    return [
+        {
+            "month":       f"{int(r['year']):04d}-{int(r['month']):02d}",
+            "month_name":  r["month_name"],
+            "order_count": r["order_count"],
+            "revenue":     round(float(r["revenue"] or 0), 2),
+        }
+        for r in results
+    ]
 
 
 @app.get("/franchise/products", tags=["Franchise"])
@@ -219,9 +238,35 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY revenue DESC, LIMIT 10
     """
     conn = get_connection()
+    p = "%s" if os.getenv("DATA_BACKEND", "sqlite") == "snowflake" else "?"
 
-    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    results = execute_query(conn, f"""
+        SELECT
+            p.product_id          AS product_id,
+            p.name                AS name,
+            p.category            AS category,
+            SUM(o.quantity)       AS units_sold,
+            SUM(o.amount)         AS revenue
+        FROM fact_orders o
+        JOIN dim_product p
+          ON p.product_id = o.product_id
+        WHERE o.status IN ('delivered', 'shipped')
+          AND o.order_date BETWEEN {p} AND {p}
+        GROUP BY p.product_id, p.name, p.category
+        ORDER BY revenue DESC
+        LIMIT 10
+    """, (start, end))
+
+    return [
+        {
+            "product_id": r["product_id"],
+            "name":       r["name"],
+            "category":   r["category"],
+            "units_sold": int(r["units_sold"] or 0),
+            "revenue":    round(float(r["revenue"] or 0), 2),
+        }
+        for r in results
+    ]
 
 
 @app.get("/franchise/customers", tags=["Franchise"])
@@ -244,8 +289,39 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
     """
     conn = get_connection()
 
-    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    # SQLite uses ? placeholders, Snowflake uses %s
+    p = "%s" if os.getenv("DATA_BACKEND", "sqlite") == "snowflake" else "?"
+
+    results = execute_query(conn, f"""
+        SELECT
+            c.customer_id            AS customer_id,
+            c.name                   AS name,
+            c.addr_city              AS city,
+            c.addr_state             AS state,
+            COUNT(DISTINCT o.order_id) AS total_orders,
+            SUM(o.amount)            AS total_spent
+        FROM fact_orders o
+        JOIN dim_customer c
+          ON c.customer_id = o.customer_id
+         AND c.is_current = 1
+        WHERE o.status IN ('delivered', 'shipped')
+          AND o.order_date BETWEEN {p} AND {p}
+        GROUP BY c.customer_id, c.name, c.addr_city, c.addr_state
+        ORDER BY total_spent DESC
+        LIMIT 20
+    """, (start, end))
+
+    return [
+        {
+            "customer_id":  r["customer_id"],
+            "name":         r["name"],
+            "city":         r["city"],
+            "state":        r["state"],
+            "total_orders": r["total_orders"],
+            "total_spent":  round(float(r["total_spent"] or 0), 2),
+        }
+        for r in results
+    ]
 
 
 @app.get("/franchise/cities", tags=["Franchise"])
@@ -266,6 +342,30 @@ def get_cities(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY revenue DESC
     """
     conn = get_connection()
+    p = "%s" if os.getenv("DATA_BACKEND", "sqlite") == "snowflake" else "?"
 
-    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+    results = execute_query(conn, f"""
+        SELECT
+            c.addr_city                AS city,
+            c.addr_state               AS state,
+            COUNT(DISTINCT o.order_id) AS order_count,
+            SUM(o.amount)              AS revenue
+        FROM fact_orders o
+        JOIN dim_customer c
+          ON c.customer_id = o.customer_id
+         AND c.is_current = 1
+        WHERE o.status IN ('delivered', 'shipped')
+          AND o.order_date BETWEEN {p} AND {p}
+        GROUP BY c.addr_city, c.addr_state
+        ORDER BY revenue DESC
+    """, (start, end))
+
+    return [
+        {
+            "city":        r["city"],
+            "state":       r["state"],
+            "order_count": r["order_count"],
+            "revenue":     round(float(r["revenue"] or 0), 2),
+        }
+        for r in results
+    ]
