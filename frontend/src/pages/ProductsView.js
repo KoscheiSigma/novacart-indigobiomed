@@ -10,17 +10,22 @@
  * Your job: implement the UI.
  */
 
-import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import React, { useState, useEffect, useCallback } from 'react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import Navbar from '../components/Navbar';
 import { getProducts } from '../utils/api';
 
 // Format currency helper
 function formatCurrency(value) {
+  if (value == null) return '$0.00';
+  return `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatCompactCurrency(value) {
   if (!value) return '$0';
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000)    return `$${(value / 1000).toFixed(0)}K`;
-  return `$${value.toFixed(2)}`;
+  return `$${Number(value).toFixed(2)}`;
 }
 
 export default function ProductsView() {
@@ -30,9 +35,7 @@ export default function ProductsView() {
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
 
-  useEffect(() => { loadData(); }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -43,7 +46,11 @@ export default function ProductsView() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -69,32 +76,72 @@ export default function ProductsView() {
         {!loading && !error && (
           <div className="grid-2">
 
-            {/*
-              STEP 1 — Top products bar chart
-              products is: [{ product_id, name, category, units_sold, revenue }]
-              Use a horizontal BarChart (layout="vertical").
-              XAxis type="number", YAxis type="category" dataKey="name"
-              Hint: truncate long product names to 20 chars
-            */}
+            {/* ── Top products bar chart ─────────────────────────────────── */}
             <div className="card">
               <div className="section-title" style={{ marginBottom: 16 }}>Top 10 Products by Revenue</div>
-              {/* TODO: add your bar chart here */}
-              <div className="loading" style={{ height: 300 }}>
-                Implement the products bar chart
+              <div style={{ width: '100%', height: 380 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    layout="vertical"
+                    data={products.slice(0, 10).map(p => ({
+                      ...p,
+                      displayName: p.name && p.name.length > 20 ? p.name.slice(0, 18) + '…' : (p.name || p.product_id),
+                    }))}
+                    margin={{ top: 10, right: 30, left: 30, bottom: 10 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                    <XAxis type="number" stroke="var(--text-secondary)" tick={{ fontSize: 12 }} tickFormatter={formatCompactCurrency} />
+                    <YAxis type="category" dataKey="displayName" stroke="var(--text-secondary)" tick={{ fontSize: 12 }} width={130} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--bg-card)',
+                        borderColor: 'var(--border)',
+                        color: 'var(--text-primary)',
+                        borderRadius: '8px',
+                      }}
+                      formatter={(value) => [formatCurrency(value), 'Revenue']}
+                      labelFormatter={(label, payload) => {
+                        const item = payload && payload[0] && payload[0].payload;
+                        return item ? item.name : label;
+                      }}
+                    />
+                    <Bar dataKey="revenue" fill="var(--accent)" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
-            {/*
-              STEP 2 — Products table
-              Show all products in a table: Name | Category | Units Sold | Revenue
-              Hint: use an HTML table or build with divs.
-              Format revenue with the formatCurrency helper above.
-            */}
+            {/* ── Products table ─────────────────────────────────────────── */}
             <div className="card">
               <div className="section-title" style={{ marginBottom: 16 }}>Product Details</div>
-              {/* TODO: add your table here */}
-              <div className="loading" style={{ height: 300 }}>
-                Implement the products table
+              <div className="data-table-container" style={{ maxHeight: 380, overflowY: 'auto' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Category</th>
+                      <th className="text-right">Units Sold</th>
+                      <th className="text-right">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map((p) => (
+                      <tr key={p.product_id}>
+                        <td style={{ fontWeight: 500 }}>{p.name}</td>
+                        <td style={{ color: 'var(--text-secondary)' }}>{p.category}</td>
+                        <td className="text-right">{Number(p.units_sold).toLocaleString()}</td>
+                        <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(p.revenue)}</td>
+                      </tr>
+                    ))}
+                    {products.length === 0 && (
+                      <tr>
+                        <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>
+                          No products found for this period.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
 

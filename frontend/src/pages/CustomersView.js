@@ -10,12 +10,12 @@
  * Your job: implement the UI and the sorting logic.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from '../components/Navbar';
 import { getCustomers } from '../utils/api';
 
 function formatCurrency(value) {
-  if (!value) return '$0';
+  if (value == null) return '$0.00';
   return `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -28,9 +28,7 @@ export default function CustomersView() {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
 
-  useEffect(() => { loadData(); }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -41,7 +39,11 @@ export default function CustomersView() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Sort handler — toggles direction if same column, resets to desc if new column
   function handleSort(column) {
@@ -95,27 +97,46 @@ export default function CustomersView() {
               Top Customers by Revenue
             </div>
 
-            {/*
-              STEP 1 — Sortable table
-              sorted is: [{ customer_id, name, city, state, total_orders, total_spent }]
-
-              Build a table with these columns:
-                Name | City | State | Orders | Total Spent
-
-              Each column header should be clickable and call handleSort(columnName).
-              Use sortIcon(columnName) to show ↑ or ↓ on the active sort column.
-
-              Hint: use a standard HTML <table> with <thead> and <tbody>.
-              Style alternating rows with different background colors.
-              Format total_spent with formatCurrency().
-            */}
-
-            {/* TODO: add your sortable table here */}
-            <div className="loading" style={{ height: 400 }}>
-              Implement the sortable customers table.
-              Data available in: sorted (array of customer objects)
-              Sorting state: sortBy="{sortBy}", sortDir="{sortDir}"
-              Use handleSort(column) to handle header clicks.
+            <div className="data-table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th className="sortable" onClick={() => handleSort('name')}>
+                      Name{sortIcon('name')}
+                    </th>
+                    <th className="sortable" onClick={() => handleSort('city')}>
+                      City{sortIcon('city')}
+                    </th>
+                    <th className="sortable" onClick={() => handleSort('state')}>
+                      State{sortIcon('state')}
+                    </th>
+                    <th className="sortable text-right" onClick={() => handleSort('total_orders')}>
+                      Orders{sortIcon('total_orders')}
+                    </th>
+                    <th className="sortable text-right" onClick={() => handleSort('total_spent')}>
+                      Total Spent{sortIcon('total_spent')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((c) => (
+                    <tr key={c.customer_id}>
+                      <td style={{ fontWeight: 500 }}>{c.name}</td>
+                      <td>{c.city}</td>
+                      <td>{c.state}</td>
+                      <td className="text-right">{Number(c.total_orders).toLocaleString()}</td>
+                      <td className="text-right" style={{ fontWeight: 600 }}>{formatCurrency(c.total_spent)}</td>
+                    </tr>
+                  ))}
+                  {sorted.length === 0 && (
+                    <tr>
+                      <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>
+                        No customers found for this period.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
 
           </div>
