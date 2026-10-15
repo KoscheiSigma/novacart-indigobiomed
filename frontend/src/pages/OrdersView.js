@@ -18,18 +18,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import Navbar from '../components/Navbar';
 import { getSummary, getOrders, getCities } from '../utils/api';
-
-function formatCurrency(val) {
-  if (val == null) return '$0.00';
-  return `$${Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function formatCompactCurrency(val) {
-  if (!val) return '$0';
-  if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
-  if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`;
-  return `$${val}`;
-}
+import { useCurrency, CURRENCIES } from '../utils/CurrencyContext';
 
 export default function OrdersView() {
   const [startDate, setStartDate] = useState('2022-01-01');
@@ -39,6 +28,23 @@ export default function OrdersView() {
   const [cities,    setCities]    = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
+
+  const { currency } = useCurrency();
+  const { symbol, rate } = CURRENCIES[currency];
+
+  function formatCurrency(val) {
+    if (val == null) return `${symbol}0.00`;
+    const converted = Number(val) * rate;
+    return `${symbol}${converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  function formatCompactCurrency(val) {
+    if (!val) return `${symbol}0`;
+    const converted = val * rate;
+    if (converted >= 1_000_000) return `${symbol}${(converted / 1_000_000).toFixed(1)}M`;
+    if (converted >= 1_000)     return `${symbol}${(converted / 1_000).toFixed(0)}K`;
+    return `${symbol}${converted.toFixed(2)}`;
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true);

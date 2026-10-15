@@ -1,12 +1,15 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../utils/ThemeContext';
+
+import { useCurrency, CURRENCIES } from '../utils/CurrencyContext';
 import ServiceStatus from './ServiceStatus';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { dark, toggle } = useTheme();
+  const { currency, selectCurrency } = useCurrency();
 
   const links = [
     { label: '📊 Orders',    path: '/orders'    },
@@ -48,6 +51,18 @@ export default function Navbar() {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <ServiceStatus />
+        <select
+          value={currency}
+          onChange={e => selectCurrency(e.target.value)}
+          style={{
+            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+            color: '#fff', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 13,
+          }}
+        >
+          {Object.keys(CURRENCIES).map(code => (
+            <option key={code} value={code} style={{ background: '#0D2B4E' }}>{code}</option>
+          ))}
+        </select>
         <button onClick={toggle} title={dark ? 'Light mode' : 'Dark mode'}
           style={{
             background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
