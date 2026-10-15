@@ -8,27 +8,32 @@ Your starting point for the NovaCart Account Dashboard capstone. The infrastruct
 ## What's in this repo
 
 ```
-backend/          Python + FastAPI API skeleton
-  main.py         ← Your main work — implement the 5 TODO endpoints
-  connection.py   ← Already done — handles local dev + SPCS automatically
+backend/          FastAPI backend application
+  main.py         API endpoints and business logic
+  connection.py   Database connection management
   requirements.txt
   Dockerfile
 
-frontend/         React 18 frontend skeleton
-  src/pages/      ← Your main work — implement the UI in these 3 files
-    OrdersView.js
-    ProductsView.js
-    CustomersView.js
-  src/components/ ← Already done — Navbar, ServiceStatus
-  src/utils/      ← Already done — api.js, ThemeContext.js
+frontend/         React 18 web application
+  src/pages/
+    OrdersView.js     Orders dashboard
+    ProductsView.js   Product performance dashboard
+    CustomersView.js  Customer reporting dashboard
+  src/components/
+    Navbar.js
+    ServiceStatus.js
+  src/utils/
+    api.js
+    ThemeContext.js
   Dockerfile
 
-router/           NGINX reverse proxy — do not modify
+router/           NGINX reverse proxy for routing requests
+
 data/
-  novacart_gold.db  ← SQLite database for local development
+  novacart_gold.db    Local development database
                       30,000 orders · 400 customers · 15 products
 
-build-and-push.sh   ← Run this on Day 4 to deploy to SPCS
+build-and-push.sh     Deployment script for Snowpark Container Services (SPCS)
 ```
 
 ---
