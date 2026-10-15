@@ -14,19 +14,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import Navbar from '../components/Navbar';
 import { getProducts } from '../utils/api';
-
-// Format currency helper
-function formatCurrency(value) {
-  if (value == null) return '$0.00';
-  return `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function formatCompactCurrency(value) {
-  if (!value) return '$0';
-  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000)    return `$${(value / 1000).toFixed(0)}K`;
-  return `$${Number(value).toFixed(2)}`;
-}
+import { useCurrency, CURRENCIES } from '../utils/CurrencyContext';
 
 export default function ProductsView() {
   const [startDate, setStartDate] = useState('2022-01-01');
@@ -34,6 +22,23 @@ export default function ProductsView() {
   const [products,  setProducts]  = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
+
+  const { currency } = useCurrency();
+  const { symbol, rate } = CURRENCIES[currency];
+
+  function formatCurrency(value) {
+    if (value == null) return `${symbol}0.00`;
+    const converted = Number(value) * rate;
+    return `${symbol}${converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  function formatCompactCurrency(value) {
+    if (!value) return `${symbol}0`;
+    const converted = value * rate;
+    if (converted >= 1_000_000) return `${symbol}${(converted / 1_000_000).toFixed(1)}M`;
+    if (converted >= 1_000)     return `${symbol}${(converted / 1_000).toFixed(0)}K`;
+    return `${symbol}${converted.toFixed(2)}`;
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true);
